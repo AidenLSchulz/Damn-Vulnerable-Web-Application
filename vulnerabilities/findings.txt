@@ -1,1 +1,63 @@
 
+//2. Remediation Phase
+//language C#
+
+// Example: NON-parameterized query (vulnerable to SQL Injection)
+
+string sqlUnsafe = "SELECT * FROM users WHERE user_id = " + id;
+
+
+// Example: Parameterized query (safe)
+
+// Uses MySqlConnector library to talk to a MySQL/MariaDB database
+using MySqlConnector;
+
+public static void GetUserById(int userId, string connectionString)
+{
+    // STEP 1 — Define the SQL query
+    // Notice we use @id as a placeholder instead of inserting the value directly
+    // This prevents user input from being executed as SQL code
+    string sql = "SELECT first_name, last_name FROM users WHERE user_id = @id";
+
+
+    // STEP 2 — Create a database connection
+    // "using" automatically closes the connection when finished (good practice)
+    using var conn = new MySqlConnection(connectionString);
+
+    // Open the connection to the database
+    conn.Open();
+
+
+    // STEP 3 — Create the command (query + connection together)
+    using var cmd = new MySqlCommand(sql, conn);
+
+
+    // STEP 4 — Add parameter safely
+    // The value is sent separately from the SQL text
+    // The database treats this as DATA ONLY, not executable SQL
+    // This blocks inputs like: 1 OR 1=1 --
+    cmd.Parameters.AddWithValue("@id", userId);
+
+
+    // STEP 5 — Execute the query
+    // Returns a reader to loop through results
+    using var reader = cmd.ExecuteReader();
+
+
+    // STEP 6 — Read each returned row
+    while (reader.Read())
+    {
+        // Get column values safely from the result set
+        string first = reader["first_name"]?.ToString() ?? "";
+        string last  = reader["last_name"]?.ToString() ?? "";
+
+        // Output result
+        Console.WriteLine($"{first} {last}".Trim());
+    }
+}
+
+
+        Console.WriteLine($"{first} {last}".Trim());
+    }
+}
+
