@@ -191,3 +191,9 @@ Injection Point 2: Login Field
     Potential database disruption
     Injection could be extended to resource exhaustion or destructive queries
     Risk Level: Medium
+
+
+Security Control Analysis - 
+To effectively detect SQL injection attempts, organizations should implement monitoring of user input for common SQL-related keywords such as SELECT, UNION, OR, and DROP. These keywords should not normally appear in URL parameters or form fields, and their presence may indicate an attempted SQL injection attack. Logging and alerting on these patterns helps identify malicious activity early.
+
+Organizations should also implement detection of special characters commonly associated with SQL injection, including single quotes ('), comment symbols (--, /* */), and semicolons (;). The appearance of these characters in input fields—particularly numeric fields such as user ID parameters—should be treated as suspicious and reviewed as potential indicators of attack.
