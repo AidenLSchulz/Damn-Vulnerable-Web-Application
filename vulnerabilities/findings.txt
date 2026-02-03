@@ -131,69 +131,54 @@ public static void GetUserById(int userId, string connectionString)
 
 
 
-1. Vulnerability Assessment
+Security Architecture: Data flow diagrams showing attack vectors and defense controls
 
-1. Data Flow Mapping (User Input to Database Execution)
 Data Flow Overview
 User Browser
-  ↓
+↓
 HTTP Request (URL parameters or login form)
-  ↓
+↓
 DVWA PHP Application
-  ↓
+↓
 Dynamic SQL Query Construction
-  ↓
+↓
 MySQL Database Execution
-  ↓
-Results Returned to User 
-Explanation
-    User input is accepted through URL parameters and login form fields.
-    The application inserts this input directly into SQL queries.
-    No validation, sanitization, or parameterized queries are used.
-    This allows user input to alter SQL logic before execution.
-    ⚠️ The trust boundary between the user and the database is broken.
-2. Injection Point Identification
-    Injection Point 1: URL Parameter
-    Location
-    URL ID parameter (e.g., id=)
-    Payload Used
-    ' OR '1'='1 
-    Resulting SQL Logic (Conceptual)
-    SELECT first_name, last_name FROM usersWHERE id = '' OR '1'='1';
-    Observed Outcome
-    The condition '1'='1' always evaluates as true
-    The database returns all rows from the users table
-    Evidence
-    Multiple user records (admin, Gordon Brown, Hack Me, Pablo Picasso, Bob Smith) were displayed from a single request
-Injection Point 2: Login Field
-    Location
-    Login form (username and/or password field)
-    Payload Used
-    ' OR '1'='1 
-    Resulting SQL Logic (Conceptual)
-    SELECT * FROM usersWHERE username = '' OR '1'='1' AND password = '';
-    Observed Outcome
-    Authentication logic is bypassed
-    Access is granted without valid credentials
-3. CIA Triad Impact Analysis
-    Confidentiality
-    Impact
-    Unauthorized access to sensitive user data
-    Ability to enumerate all user records
-    Risk Level: High
-    Integrity
-    Impact
-    Attacker-controlled SQL logic
-    Potential to modify, insert, or delete database records
-    Risk Level: High
-    Availability
-    Impact
-    Potential database disruption
-    Injection could be extended to resource exhaustion or destructive queries
-    Risk Level: Medium
+↓
+Results Returned to User
 
+Explanation: User input is accepted through URL parameters and login fields and is directly inserted into SQL queries without validation or parameterization. This breaks the trust boundary between the user and the database and allows input to alter SQL logic.
 
-Security Control Analysis - 
-To effectively detect SQL injection attempts, organizations should implement monitoring of user input for common SQL-related keywords such as SELECT, UNION, OR, and DROP. These keywords should not normally appear in URL parameters or form fields, and their presence may indicate an attempted SQL injection attack. Logging and alerting on these patterns helps identify malicious activity early.
+Attack vectors identified:
+URL parameter injection (id=) using payload ' OR '1'='1 caused the condition to always evaluate true and returned all rows.
+Login field injection using payload ' OR '1'='1 bypassed authentication and granted access without valid credentials.
+These vectors allowed authentication bypass, unauthorized data access, and database enumeration.
 
-Organizations should also implement detection of special characters commonly associated with SQL injection, including single quotes ('), comment symbols (--, /* */), and semicolons (;). The appearance of these characters in input fields—particularly numeric fields such as user ID parameters—should be treated as suspicious and reviewed as potential indicators of attack.
+Defense controls placed along the same flow:
+WAF inspects HTTP/S traffic and blocks known SQL injection patterns before requests reach the application.
+Input validation enforces strict expected formats and rejects unexpected characters or patterns.
+Parameterized queries and prepared statements treat user input strictly as data rather than executable SQL.
+Least-privilege database accounts limit permissions so destructive queries cannot be executed even if compromised.
+
+These controls protect the trust boundary and prevent manipulation of SQL logic.
+
+Compliance Matrix: How your remediation addresses industry standards
+
+Parameterized queries and prepared statements prevent SQL injection and protect confidentiality and integrity of authentication and user data, aligning with NIST 800-63B secure authentication practices and PCI-DSS expectations for protecting authentication systems.
+Input validation blocks malformed or malicious input before processing, supporting secure handling of credentials and authentication inputs required by both NIST 800-63B and PCI-DSS.
+Web Application Firewall deployment protects public-facing applications by blocking common attack signatures and providing layered defense, supporting PCI-DSS web application protection requirements and defense-in-depth practices aligned with NIST.
+Least-privilege database accounts restrict access to only necessary permissions, reducing impact of compromise and supporting least-privilege principles expected by industry standards.
+Logging and monitoring enable detection of suspicious behavior and auditing, supporting compliance requirements for monitoring, incident response, and accountability.
+
+Together these controls improve confidentiality, integrity, and availability while meeting common regulatory expectations.
+
+Detection Strategy: How to identify SQL injection attempts in production
+
+Monitor all URL parameters and form fields for SQL-related keywords that should not normally appear in user input, including SELECT, UNION, OR, and DROP.
+Detect special characters commonly used in injection attacks such as single quotes ('), comment markers (--, /* */), and semicolons (;), especially in numeric fields like user ID parameters.
+Log and alert when these patterns are observed to identify potential attacks early.
+Review WAF logs for blocked requests and rule matches related to SQL injection.
+Review application logs for rejected input validation attempts and abnormal parameter values.
+Monitor authentication logs for repeated failed logins that may indicate brute-force or injection attempts.
+Watch for unusual request sizes, repeated payload variations, or anomalous traffic patterns.
+
+These detection measures provide early identification of SQL injection activity and support timely response and containment.
