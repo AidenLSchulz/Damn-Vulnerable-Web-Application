@@ -128,3 +128,66 @@ public static void GetUserById(int userId, string connectionString)
     }
 }
 
+
+
+
+1. Vulnerability Assessment
+
+1. Data Flow Mapping (User Input to Database Execution)
+Data Flow Overview
+User Browser
+  ↓
+HTTP Request (URL parameters or login form)
+  ↓
+DVWA PHP Application
+  ↓
+Dynamic SQL Query Construction
+  ↓
+MySQL Database Execution
+  ↓
+Results Returned to User 
+Explanation
+    User input is accepted through URL parameters and login form fields.
+    The application inserts this input directly into SQL queries.
+    No validation, sanitization, or parameterized queries are used.
+    This allows user input to alter SQL logic before execution.
+    ⚠️ The trust boundary between the user and the database is broken.
+2. Injection Point Identification
+    Injection Point 1: URL Parameter
+    Location
+    URL ID parameter (e.g., id=)
+    Payload Used
+    ' OR '1'='1 
+    Resulting SQL Logic (Conceptual)
+    SELECT first_name, last_name FROM usersWHERE id = '' OR '1'='1';
+    Observed Outcome
+    The condition '1'='1' always evaluates as true
+    The database returns all rows from the users table
+    Evidence
+    Multiple user records (admin, Gordon Brown, Hack Me, Pablo Picasso, Bob Smith) were displayed from a single request
+Injection Point 2: Login Field
+    Location
+    Login form (username and/or password field)
+    Payload Used
+    ' OR '1'='1 
+    Resulting SQL Logic (Conceptual)
+    SELECT * FROM usersWHERE username = '' OR '1'='1' AND password = '';
+    Observed Outcome
+    Authentication logic is bypassed
+    Access is granted without valid credentials
+3. CIA Triad Impact Analysis
+    Confidentiality
+    Impact
+    Unauthorized access to sensitive user data
+    Ability to enumerate all user records
+    Risk Level: High
+    Integrity
+    Impact
+    Attacker-controlled SQL logic
+    Potential to modify, insert, or delete database records
+    Risk Level: High
+    Availability
+    Impact
+    Potential database disruption
+    Injection could be extended to resource exhaustion or destructive queries
+    Risk Level: Medium
